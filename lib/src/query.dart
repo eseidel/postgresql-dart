@@ -145,7 +145,8 @@ class Query<T> {
     final iterator = fieldDescriptions!.iterator;
     final lazyDecodedData = rawRowData.map((bd) {
       iterator.moveNext();
-      return iterator.current.converter.convert(bd);
+      return iterator.current.converter
+          .convert(bd, encoding: connection.encoding);
     });
 
     rows.add(lazyDecodedData.toList());
@@ -235,7 +236,7 @@ class ParameterValue {
 }
 
 class FieldDescription implements ColumnDescription {
-  final Converter converter;
+  final PostgresBinaryDecoder converter;
 
   @override
   final String columnName;

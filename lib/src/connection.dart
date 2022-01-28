@@ -2,6 +2,7 @@ library postgres.connection;
 
 import 'dart:async';
 import 'dart:collection';
+import 'dart:convert';
 import 'dart:io';
 import 'dart:typed_data';
 
@@ -52,6 +53,7 @@ class PostgreSQLConnection extends Object
     this.useSSL = false,
     this.isUnixSocket = false,
     this.allowClearTextPassword = false,
+    this.encoding = utf8,
   }) {
     _connectionState = _PostgreSQLConnectionStateClosed();
     _connectionState.connection = this;
@@ -96,6 +98,9 @@ class PostgreSQLConnection extends Object
   /// If true, allows password in clear text for authentication.
   final bool allowClearTextPassword;
 
+  /// The default encoding of the connection.
+  final Encoding encoding;
+
   /// Stream of notification from the database.
   ///
   /// Listen to this [Stream] to receive events from PostgreSQL NOTIFY commands.
@@ -116,6 +121,8 @@ class PostgreSQLConnection extends Object
   /// After connecting to a database, this map will contain the settings values that the database returns.
   /// Prior to connection, it is the empty map.
   final Map<String, String> settings = {};
+
+
 
   final _cache = QueryCache();
   final _oidCache = _OidCache();

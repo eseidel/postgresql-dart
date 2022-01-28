@@ -38,7 +38,7 @@ class PostgresBinaryEncoder extends Converter<dynamic, Uint8List?> {
   const PostgresBinaryEncoder(this._dataType);
 
   @override
-  Uint8List? convert(dynamic value) {
+  Uint8List? convert(dynamic value, {Encoding encoding = utf8}) {
     if (value == null) {
       return null;
     }
@@ -89,7 +89,7 @@ class PostgresBinaryEncoder extends Converter<dynamic, Uint8List?> {
       case PostgreSQLDataType.varChar:
         {
           if (value is String) {
-            return castBytes(utf8.encode(value));
+            return castBytes(encoding.encode(value));
           }
           throw FormatException(
               'Invalid type for parameter value. Expected: String Got: ${value.runtimeType}');
@@ -175,7 +175,7 @@ class PostgresBinaryEncoder extends Converter<dynamic, Uint8List?> {
 
       case PostgreSQLDataType.jsonb:
         {
-          final jsonBytes = utf8.encode(json.encode(value));
+          final jsonBytes = encoding.encode(json.encode(value));
           final writer = ByteDataWriter(bufferLength: jsonBytes.length + 1);
           writer.writeUint8(1);
           writer.write(jsonBytes);
@@ -183,7 +183,7 @@ class PostgresBinaryEncoder extends Converter<dynamic, Uint8List?> {
         }
 
       case PostgreSQLDataType.json:
-        return castBytes(utf8.encode(json.encode(value)));
+        return castBytes(encoding.encode(json.encode(value)));
 
       case PostgreSQLDataType.byteArray:
         {
@@ -268,7 +268,7 @@ class PostgresBinaryEncoder extends Converter<dynamic, Uint8List?> {
       case PostgreSQLDataType.textArray:
         {
           if (value is List<String>) {
-            final bytesArray = value.map((v) => utf8.encode(v));
+            final bytesArray = value.map((v) => encoding.encode(v));
             return writeListBytes<List<int>>(bytesArray, 25,
                 (item) => item.length, (writer, item) => writer.write(item));
           }
@@ -289,7 +289,7 @@ class PostgresBinaryEncoder extends Converter<dynamic, Uint8List?> {
       case PostgreSQLDataType.jsonbArray:
         {
           if (value is List<Object>) {
-            final objectsArray = value.map((v) => utf8.encode(json.encode(v)));
+            final objectsArray = value.map((v) => encoding.encode(json.encode(v)));
             return writeListBytes<List<int>>(
                 objectsArray, 3802, (item) => item.length + 1, (writer, item) {
               writer.writeUint8(1);
@@ -412,7 +412,7 @@ class PostgresBinaryDecoder extends Converter<Uint8List, dynamic> {
   final int typeCode;
 
   @override
-  dynamic convert(Uint8List? value) {
+  dynamic convert(Uint8List? value, {Encoding encoding = utf8}) {
     if (value == null) {
       return null;
     }
@@ -426,7 +426,7 @@ class PostgresBinaryDecoder extends Converter<Uint8List, dynamic> {
       case PostgreSQLDataType.name:
       case PostgreSQLDataType.text:
       case PostgreSQLDataType.varChar:
-        return utf8.decode(value);
+        return encoding.decode(value);
       case PostgreSQLDataType.boolean:
         return buffer.getInt8(0) != 0;
       case PostgreSQLDataType.smallInteger:
@@ -463,11 +463,11 @@ class PostgresBinaryDecoder extends Converter<Uint8List, dynamic> {
           // Removes version which is first character and currently always '1'
           final bytes = value.buffer
               .asUint8List(value.offsetInBytes + 1, value.lengthInBytes - 1);
-          return json.decode(utf8.decode(bytes));
+          return json.decode(encoding.decode(bytes));
         }
 
       case PostgreSQLDataType.json:
-        return json.decode(utf8.decode(value));
+        return json.decode(encoding.decode(value));
 
       case PostgreSQLDataType.byteArray:
         return value;
@@ -501,7 +501,7 @@ class PostgresBinaryDecoder extends Converter<Uint8List, dynamic> {
       case PostgreSQLDataType.varCharArray:
       case PostgreSQLDataType.textArray:
         return readListBytes<String>(value, (reader, length) {
-          return utf8.decode(length > 0 ? reader.read(length) : []);
+          return encoding.decode(length > 0 ? reader.read(length) : []);
         });
 
       case PostgreSQLDataType.doubleArray:
@@ -512,17 +512,17 @@ class PostgresBinaryDecoder extends Converter<Uint8List, dynamic> {
         return readListBytes<dynamic>(value, (reader, length) {
           reader.read(1);
           final bytes = reader.read(length - 1);
-          return json.decode(utf8.decode(bytes));
+          return json.decode(encoding.decode(bytes));
         });
 
       default:
         {
-          // We'll try and decode this as a utf8 string and return that
+          // We'll try and decode this as a string and return that
           // for many internal types, this is valid. If it fails,
           // we just return the bytes and let the caller figure out what to
           // do with it.
           try {
-            return utf8.decode(value);
+            return encoding.decode(value);
           } catch (_) {
             return value;
           }
