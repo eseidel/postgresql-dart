@@ -8,6 +8,7 @@ import 'package:buffer/buffer.dart';
 import 'binary_codec.dart';
 import 'client_messages.dart';
 import 'connection.dart';
+import 'connection_config.dart';
 import 'execution_context.dart';
 import 'substituter.dart';
 import 'text_codec.dart';
@@ -18,6 +19,7 @@ class Query<T> {
     this.statement,
     this.substitutionValues,
     this.connection,
+    this.config,
     this.transaction,
     this.queryStackTrace, {
     this.onlyReturnAffectedRowCount = false,
@@ -33,6 +35,7 @@ class Query<T> {
   final Map<String, dynamic>? substitutionValues;
   final PostgreSQLExecutionContext transaction;
   final PostgreSQLConnection connection;
+  final ConnectionConfig config;
 
   late List<PostgreSQLDataType?> _specifiedParameterTypeCodes;
   final rows = <List<dynamic>>[];
@@ -80,7 +83,7 @@ class Query<T> {
         formatIdentifiers.map((i) => i.type).toList();
 
     final parameterList = formatIdentifiers
-        .map((id) => ParameterValue(id, substitutionValues))
+        .map((id) => ParameterValue(id, substitutionValues, config.encoding))
         .toList();
 
     final messages = [
@@ -102,7 +105,8 @@ class Query<T> {
       Map<String, dynamic>? substitutionValues) {
     final statementName = cacheQuery.preparedStatementName;
     final parameterList = cacheQuery.orderedParameters!
-        .map((identifier) => ParameterValue(identifier, substitutionValues))
+        .map((identifier) =>
+            ParameterValue(identifier, substitutionValues, config.encoding))
         .toList();
 
     final bytes = ClientMessage.aggregateBytes([
@@ -145,8 +149,7 @@ class Query<T> {
     final iterator = fieldDescriptions!.iterator;
     final lazyDecodedData = rawRowData.map((bd) {
       iterator.moveNext();
-      return iterator.current.converter
-          .convert(bd, encoding: connection.encoding);
+      return iterator.current.converter.convert(bd, encoding: config.encoding);
     });
 
     rows.add(lazyDecodedData.toList());
@@ -199,10 +202,14 @@ class CachedQuery {
 }
 
 class ParameterValue {
-  factory ParameterValue(PostgreSQLFormatIdentifier identifier,
-      Map<String, dynamic>? substitutionValues) {
+  factory ParameterValue(
+    PostgreSQLFormatIdentifier identifier,
+    Map<String, dynamic>? substitutionValues,
+    Encoding encoding,
+  ) {
     if (identifier.type == null) {
-      return ParameterValue.text(substitutionValues?[identifier.name]);
+      return ParameterValue.text(
+          substitutionValues?[identifier.name], encoding);
     }
 
     return ParameterValue.binary(
@@ -217,12 +224,12 @@ class ParameterValue {
     return ParameterValue._(true, bytes, length);
   }
 
-  factory ParameterValue.text(dynamic value) {
+  factory ParameterValue.text(dynamic value, Encoding encoding) {
     Uint8List? bytes;
     if (value != null) {
       final converter = PostgresTextEncoder();
       bytes = castBytes(
-          utf8.encode(converter.convert(value, escapeStrings: false)));
+          encoding.encode(converter.convert(value, escapeStrings: false)));
     }
     final length = bytes?.length ?? 0;
     return ParameterValue._(false, bytes, length);

@@ -3,35 +3,40 @@ import 'dart:typed_data';
 
 import 'package:buffer/buffer.dart';
 
+import 'connection_config.dart';
 import 'server_messages.dart';
 
 const int _headerByteSize = 5;
 final _emptyData = Uint8List(0);
 
-typedef _ServerMessageFn = ServerMessage Function(Uint8List data);
+typedef _ServerMessageFn = ServerMessage Function(
+    Uint8List data, ConnectionConfig config);
 
 Map<int, _ServerMessageFn> _messageTypeMap = {
-  49: (d) => ParseCompleteMessage(),
-  50: (d) => BindCompleteMessage(),
-  65: (d) => NotificationResponseMessage(d),
-  67: (d) => CommandCompleteMessage(d),
-  68: (d) => DataRowMessage(d),
-  69: (d) => ErrorResponseMessage(d),
-  75: (d) => BackendKeyMessage(d),
-  82: (d) => AuthenticationMessage(d),
-  83: (d) => ParameterStatusMessage(d),
-  84: (d) => RowDescriptionMessage(d),
-  90: (d) => ReadyForQueryMessage(d),
-  110: (d) => NoDataMessage(),
-  116: (d) => ParameterDescriptionMessage(d),
+  49: (d, c) => ParseCompleteMessage(),
+  50: (d, c) => BindCompleteMessage(),
+  65: (d, c) => NotificationResponseMessage(d, c),
+  67: (d, c) => CommandCompleteMessage(d, c),
+  68: (d, c) => DataRowMessage(d),
+  69: (d, c) => ErrorResponseMessage(d),
+  75: (d, c) => BackendKeyMessage(d),
+  82: (d, c) => AuthenticationMessage(d),
+  83: (d, c) => ParameterStatusMessage(d, c),
+  84: (d, c) => RowDescriptionMessage(d),
+  90: (d, c) => ReadyForQueryMessage(d, c),
+  110: (d, c) => NoDataMessage(),
+  116: (d, c) => ParameterDescriptionMessage(d),
 };
 
 class MessageFramer {
+  final ConnectionConfig _config;
   final _reader = ByteDataReader();
   final messageQueue = Queue<ServerMessage>();
 
   int? _type;
   int _expectedLength = 0;
+
+  MessageFramer(this._config);
 
   bool get _hasReadHeader => _type != null;
   bool get _canReadHeader => _reader.remainingLength >= _headerByteSize;
@@ -55,8 +60,9 @@ class MessageFramer {
         final data =
             _expectedLength == 0 ? _emptyData : _reader.read(_expectedLength);
         final msgMaker = _messageTypeMap[_type];
-        final msg =
-            msgMaker == null ? UnknownMessage(_type, data) : msgMaker(data);
+        final msg = msgMaker == null
+            ? UnknownMessage(_type, data)
+            : msgMaker(data, _config);
         messageQueue.add(msg);
         _type = null;
         _expectedLength = 0;

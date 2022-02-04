@@ -8,7 +8,8 @@ class _TransactionProxy extends Object
     implements PostgreSQLExecutionContext {
   _TransactionProxy(
       this._connection, this.executionBlock, this.commitTimeoutInSeconds) {
-    _beginQuery = Query<int>('BEGIN', {}, _connection, this, StackTrace.current,
+    _beginQuery = Query<int>(
+        'BEGIN', {}, _connection, _connection._config, this, StackTrace.current,
         onlyReturnAffectedRowCount: true);
 
     _beginQuery.future
@@ -89,8 +90,8 @@ class _TransactionProxy extends Object
         'that prevented this query from executing.');
     _queue.cancel(err);
 
-    final rollback = Query<int>(
-        'ROLLBACK', {}, _connection, _transaction, StackTrace.current,
+    final rollback = Query<int>('ROLLBACK', {}, _connection,
+        _connection._config, _transaction, StackTrace.current,
         onlyReturnAffectedRowCount: true);
     _queue.addEvenIfCancelled(rollback);
 

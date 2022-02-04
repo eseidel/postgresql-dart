@@ -7,6 +7,7 @@ import 'dart:io';
 import 'dart:typed_data';
 
 import 'package:buffer/buffer.dart';
+import 'package:postgres/src/connection_config.dart';
 import 'auth/auth.dart';
 
 import 'client_messages.dart';
@@ -53,10 +54,11 @@ class PostgreSQLConnection extends Object
     this.useSSL = false,
     this.isUnixSocket = false,
     this.allowClearTextPassword = false,
-    this.encoding = utf8,
+    Encoding encoding = utf8,
   }) {
     _connectionState = _PostgreSQLConnectionStateClosed();
     _connectionState.connection = this;
+    _config = ConnectionConfig(encoding: encoding);
   }
 
   final StreamController<Notification> _notifications =
@@ -98,8 +100,7 @@ class PostgreSQLConnection extends Object
   /// If true, allows password in clear text for authentication.
   final bool allowClearTextPassword;
 
-  /// The default encoding of the connection.
-  final Encoding encoding;
+  late ConnectionConfig _config;
 
   /// Stream of notification from the database.
   ///
@@ -122,12 +123,10 @@ class PostgreSQLConnection extends Object
   /// Prior to connection, it is the empty map.
   final Map<String, String> settings = {};
 
-
-
   final _cache = QueryCache();
   final _oidCache = _OidCache();
   Socket? _socket;
-  MessageFramer _framer = MessageFramer();
+  late var _framer = MessageFramer(_config);
   late int _processID;
   // ignore: unused_field
   late int _secretKey;
@@ -168,7 +167,7 @@ class PostgreSQLConnection extends Object
             .timeout(Duration(seconds: timeoutInSeconds));
       }
 
-      _framer = MessageFramer();
+      _framer = MessageFramer(_config);
       if (useSSL) {
         _socket =
             await _upgradeSocketToSSL(_socket!, timeout: timeoutInSeconds);
@@ -456,6 +455,7 @@ abstract class _PostgreSQLExecutionContextMixin
       fmtString,
       substitutionValues,
       _connection,
+      _connection._config,
       _transaction,
       StackTrace.current,
     );
@@ -507,7 +507,7 @@ abstract class _PostgreSQLExecutionContextMixin
     }
 
     final query = Query<void>(fmtString, substitutionValues, _connection,
-        _transaction, StackTrace.current,
+        _connection._config, _transaction, StackTrace.current,
         onlyReturnAffectedRowCount: true);
 
     final result = await _enqueue(query, timeoutInSeconds: timeoutInSeconds);

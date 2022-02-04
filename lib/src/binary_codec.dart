@@ -289,7 +289,8 @@ class PostgresBinaryEncoder extends Converter<dynamic, Uint8List?> {
       case PostgreSQLDataType.jsonbArray:
         {
           if (value is List<Object>) {
-            final objectsArray = value.map((v) => encoding.encode(json.encode(v)));
+            final objectsArray =
+                value.map((v) => encoding.encode(json.encode(v)));
             return writeListBytes<List<int>>(
                 objectsArray, 3802, (item) => item.length + 1, (writer, item) {
               writer.writeUint8(1);
