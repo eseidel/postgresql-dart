@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'dart:typed_data';
 
 import 'package:buffer/buffer.dart';
@@ -5,6 +6,7 @@ import 'package:sasl_scram/sasl_scram.dart';
 
 import '../../postgres.dart';
 import '../client_messages.dart';
+import '../connection_config.dart';
 import '../server_messages.dart';
 import '../utf8_backed_string.dart';
 import 'auth.dart';
@@ -13,8 +15,9 @@ import 'auth.dart';
 class PostgresSaslAuthenticator extends PostgresAuthenticator {
   final SaslAuthenticator authenticator;
 
-  PostgresSaslAuthenticator(PostgreSQLConnection connection, this.authenticator)
-      : super(connection);
+  PostgresSaslAuthenticator(PostgreSQLConnection connection,
+      ConnectionConfig config, this.authenticator)
+      : super(connection, config);
 
   @override
   void onMessage(AuthenticationMessage message) {
@@ -26,7 +29,8 @@ class PostgresSaslAuthenticator extends PostgresAuthenticator {
         if (bytesToSend == null) {
           throw PostgreSQLException('KindSASL: No bytes to send');
         }
-        msg = SaslClientFirstMessage(bytesToSend, authenticator.mechanism.name);
+        msg = SaslClientFirstMessage(
+            bytesToSend, authenticator.mechanism.name, config.encoding);
         break;
       case AuthenticationMessage.KindSASLContinue:
         final bytesToSend = authenticator.handleMessage(
@@ -51,14 +55,16 @@ class PostgresSaslAuthenticator extends PostgresAuthenticator {
 class SaslClientFirstMessage extends ClientMessage {
   Uint8List bytesToSendToServer;
   String mechanismName;
+  final Encoding _encoding;
 
-  SaslClientFirstMessage(this.bytesToSendToServer, this.mechanismName);
+  SaslClientFirstMessage(
+      this.bytesToSendToServer, this.mechanismName, this._encoding);
 
   @override
   void applyToBuffer(ByteDataWriter buffer) {
     buffer.writeUint8(ClientMessage.PasswordIdentifier);
 
-    final utf8CachedMechanismName = UTF8BackedString(mechanismName);
+    final utf8CachedMechanismName = UTF8BackedString(mechanismName, _encoding);
 
     final msgLength = bytesToSendToServer.length;
     // No Identifier bit + 4 byte counts (for whole length) + mechanism bytes + zero byte + 4 byte counts (for msg length) + msg bytes

@@ -41,15 +41,18 @@ class _PostgreSQLConnectionStateClosed extends _PostgreSQLConnectionState {}
 
 class _PostgreSQLConnectionStateSocketConnected
     extends _PostgreSQLConnectionState {
-  _PostgreSQLConnectionStateSocketConnected(this.completer);
-
   Completer completer;
+
+  _PostgreSQLConnectionStateSocketConnected(this.completer);
 
   @override
   _PostgreSQLConnectionState onEnter() {
     final startupMessage = StartupMessage(
-        connection!.databaseName, connection!.timeZone,
-        username: connection!.username);
+      connection!.databaseName,
+      connection!.timeZone,
+      username: connection!.username,
+      encoding: connection!._config.encoding,
+    );
 
     connection!._socket!.add(startupMessage.asBytes());
 
@@ -107,13 +110,13 @@ class _PostgreSQLConnectionStateAuthenticating
         case AuthenticationMessage.KindOK:
           return _PostgreSQLConnectionStateAuthenticated(completer);
         case AuthenticationMessage.KindMD5Password:
-          _authenticator =
-              createAuthenticator(connection!, AuthenticationScheme.MD5);
+          _authenticator = createAuthenticator(
+              connection!, connection!._config, AuthenticationScheme.MD5);
           continue authMsg;
         case AuthenticationMessage.KindClearTextPassword:
           if (connection!.allowClearTextPassword) {
-            _authenticator =
-                createAuthenticator(connection!, AuthenticationScheme.CLEAR);
+            _authenticator = createAuthenticator(
+                connection!, connection!._config, AuthenticationScheme.CLEAR);
             continue authMsg;
           } else {
             completer.completeError(PostgreSQLException(
@@ -121,8 +124,8 @@ class _PostgreSQLConnectionStateAuthenticating
             break;
           }
         case AuthenticationMessage.KindSASL:
-          _authenticator = createAuthenticator(
-              connection!, AuthenticationScheme.SCRAM_SHA_256);
+          _authenticator = createAuthenticator(connection!, connection!._config,
+              AuthenticationScheme.SCRAM_SHA_256);
           continue authMsg;
         authMsg:
         case AuthenticationMessage.KindSASLContinue:

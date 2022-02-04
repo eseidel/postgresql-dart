@@ -57,7 +57,7 @@ class Query<T> {
   void sendSimple(Socket socket) {
     final sqlString =
         PostgreSQLFormat.substitute(statement, substitutionValues);
-    final queryMessage = QueryMessage(sqlString);
+    final queryMessage = QueryMessage(sqlString, config.encoding);
 
     socket.add(queryMessage.asBytes());
   }
@@ -87,9 +87,20 @@ class Query<T> {
         .toList();
 
     final messages = [
-      ParseMessage(sqlString, statementName: statementName),
-      DescribeMessage(statementName: statementName),
-      BindMessage(parameterList, statementName: statementName),
+      ParseMessage(
+        sqlString,
+        statementName: statementName,
+        encoding: config.encoding,
+      ),
+      DescribeMessage(
+        statementName: statementName,
+        encoding: config.encoding,
+      ),
+      BindMessage(
+        parameterList,
+        statementName: statementName,
+        encoding: config.encoding,
+      ),
       ExecuteMessage(),
       SyncMessage(),
     ];
@@ -110,7 +121,11 @@ class Query<T> {
         .toList();
 
     final bytes = ClientMessage.aggregateBytes([
-      BindMessage(parameterList, statementName: statementName!),
+      BindMessage(
+        parameterList,
+        statementName: statementName!,
+        encoding: config.encoding,
+      ),
       ExecuteMessage(),
       SyncMessage()
     ]);

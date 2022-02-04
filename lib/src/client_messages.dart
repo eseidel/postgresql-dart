@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'dart:typed_data';
 
 import 'package:buffer/buffer.dart';
@@ -40,10 +41,15 @@ class StartupMessage extends ClientMessage {
   final UTF8BackedString _databaseName;
   final UTF8BackedString _timeZone;
 
-  StartupMessage(String databaseName, String timeZone, {String? username})
-      : _databaseName = UTF8BackedString(databaseName),
-        _timeZone = UTF8BackedString(timeZone),
-        _username = username == null ? null : UTF8BackedString(username);
+  StartupMessage(
+    String databaseName,
+    String timeZone, {
+    String? username,
+    required Encoding encoding,
+  })  : _databaseName = UTF8BackedString(databaseName, encoding),
+        _timeZone = UTF8BackedString(timeZone, encoding),
+        _username =
+            username == null ? null : UTF8BackedString(username, encoding);
 
   @override
   void applyToBuffer(ByteDataWriter buffer) {
@@ -79,8 +85,8 @@ class StartupMessage extends ClientMessage {
 class QueryMessage extends ClientMessage {
   final UTF8BackedString _queryString;
 
-  QueryMessage(String queryString)
-      : _queryString = UTF8BackedString(queryString);
+  QueryMessage(String queryString, Encoding encoding)
+      : _queryString = UTF8BackedString(queryString, encoding);
 
   @override
   void applyToBuffer(ByteDataWriter buffer) {
@@ -95,9 +101,12 @@ class ParseMessage extends ClientMessage {
   final UTF8BackedString _statementName;
   final UTF8BackedString _statement;
 
-  ParseMessage(String statement, {String statementName = ''})
-      : _statement = UTF8BackedString(statement),
-        _statementName = UTF8BackedString(statementName);
+  ParseMessage(
+    String statement, {
+    String statementName = '',
+    required Encoding encoding,
+  })  : _statement = UTF8BackedString(statement, encoding),
+        _statementName = UTF8BackedString(statementName, encoding);
 
   @override
   void applyToBuffer(ByteDataWriter buffer) {
@@ -114,8 +123,10 @@ class ParseMessage extends ClientMessage {
 class DescribeMessage extends ClientMessage {
   final UTF8BackedString _statementName;
 
-  DescribeMessage({String statementName = ''})
-      : _statementName = UTF8BackedString(statementName);
+  DescribeMessage({
+    String statementName = '',
+    required Encoding encoding,
+  }) : _statementName = UTF8BackedString(statementName, encoding);
 
   @override
   void applyToBuffer(ByteDataWriter buffer) {
@@ -133,9 +144,12 @@ class BindMessage extends ClientMessage {
   final int _typeSpecCount;
   int _cachedLength = -1;
 
-  BindMessage(this._parameters, {String statementName = ''})
-      : _typeSpecCount = _parameters.where((p) => p.isBinary).length,
-        _statementName = UTF8BackedString(statementName);
+  BindMessage(
+    this._parameters, {
+    String statementName = '',
+    required Encoding encoding,
+  })  : _typeSpecCount = _parameters.where((p) => p.isBinary).length,
+        _statementName = UTF8BackedString(statementName, encoding);
 
   int get length {
     if (_cachedLength == -1) {
